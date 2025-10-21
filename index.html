@@ -2,141 +2,438 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>I-66 Toll Prices (VDOT vai66tolls.com)</title>
+  <title>I-66 Toll Prices</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
   <style>
-    :root { color-scheme: light dark; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 1rem; }
-    h1 { font-size: 1.4rem; margin: 0 0 0.5rem 0; }
-    .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin: 0.4rem 0; }
-    input[type="url"], input[type="text"], input[type="number"], input[type="datetime-local"], select { padding: 0.35rem; font-size: 0.95rem; }
-    button { padding: 0.4rem 0.7rem; font-size: 0.95rem; }
-    .muted { color: #666; font-size: 0.9rem; }
-    #status { margin-top: 0.25rem; }
-    #errors { color: #b00020; white-space: pre-wrap; margin-top: 0.25rem; }
-    #debug { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; white-space: pre-wrap; border: 1px solid #ddd; border-radius: 6px; padding: 0.5rem; margin-top: 0.5rem; max-height: 240px; overflow: auto; }
-    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; margin-top: 0.5rem; }
-    .card { border: 1px solid #ddd; border-radius: 8px; padding: 0.75rem; }
-    .price { font-size: 1.6rem; font-weight: 700; }
-    .meta { font-size: 0.95rem; color: #444; }
-    .ok { color: #0b7a2a; }
-    .warn { color: #8a6d1c; }
-    .grid { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-    fieldset { border: 1px solid #ddd; border-radius: 8px; padding: 0.6rem; }
-    legend { padding: 0 0.25rem; }
-    label { margin-right: 0.35rem; }
-    .small { font-size: 0.85rem; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-  </style>
+    /* ──────────────────────────────────────────────────────────────────────
+       Root variables – colours + spacing helpers
+       ────────────────────────────────────────────────────────────────────── */
+    :root {
+      /* Colours (unchanged) */
+      --bg: #0d1117;
+      --panel: #161b22;
+      --panel-2: #0f141a;
+      --text: #e6edf3;
+      --muted: #8b98a5;
+      --accent: #5ce1e6;   /* teal */
+      --accent-2: #b066ff;/* purple */
+      --danger: #ff5c8d;
+      --ok: #6ee7b7;
+      --border: #263241;
+      --shadow: 0 8px 24px rgba(0,0,0,0.35);
+      --radius: 18px;      /* a touch softer than 14px */
+    
+      /* New spacing helpers – change these numbers to make the UI tighter or looser */
+      --gap-sm:   8px;   /* small gaps – used for tight groups */
+      --gap-md:  16px;   /* medium gaps – default spacing */
+      --gap-lg:  24px;   /* large gaps – for sections that need breathing room */
+    
+      --pad-sm:  10px;  /* small internal padding */
+      --pad-md:  14px;  /* default internal padding */
+      --pad-lg:  20px;  /* generous padding for panels, cards, etc. */
+    }
+    
+    /* ──────────────────────────────────────────────────────────────────────
+       Global page layout
+       ────────────────────────────────────────────────────────────────────── */
+    html, body {
+      background:
+        radial-gradient(1200px 800px at 85% -20%, rgba(176,102,255,0.10), transparent) fixed,
+        radial-gradient(800px 800px at -10% 110%, rgba(92,225,230,0.08), transparent) fixed,
+        var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system,
+                   Segoe UI, Roboto, Arial, sans-serif;
+      margin: 0;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: var(--gap-lg) var(--gap-md);
+    }
+    
+    /* ──────────────────────────────────────────────────────────────────────
+       Header & navigation tabs
+       ────────────────────────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--gap-md);
+      margin-bottom: var(--gap-lg);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: var(--gap-md);
+    }
+    .logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg,
+                  rgba(92,225,230,0.35),
+                  rgba(176,102,255,0.35));
+      box-shadow:
+        inset 0 0 22px rgba(176,102,255,0.25),
+        inset 0 0 16px rgba(92,225,230,0.25),
+        var(--shadow);
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin: 0;
+      letter-spacing: 0.2px;
+    }
+    .muted {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: var(--gap-md);
+      border-bottom: 1px solid var(--border);
+      margin-top: var(--gap-lg);
+    }
+    .tab-button {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      padding: var(--pad-sm) var(--pad-md);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: 0.2px;
+    }
+    .tab-button.active {
+      color: var(--text);
+      border-color: var(--accent);
+      background: linear-gradient(180deg,
+                  rgba(92,225,230,0.12),
+                  transparent);
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+    }
+    
+    /* ──────────────────────────────────────────────────────────────────────
+       Panels, rows & form controls
+       ────────────────────────────────────────────────────────────────────── */
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: var(--pad-lg);
+      margin-top: var(--gap-sm);
+      display: flex;
+  flex-direction: column;      /* stack children top‑to‑bottom */
+  align-items: center;         /* ← horizontal centering */
+    }
+    .row {
+      display: flex;
+      gap: var(--gap-md);
+      align-items: center;
+      flex-wrap: wrap;
+      margin: var(--gap-sm) 0;
+    }
+    
+    /* Buttons & inputs – larger hit‑targets */
+    .btn,
+    .select,
+    .text,
+    .number,
+    .datetime {
+      font-size: 1rem;
+      padding: var(--pad-md) var(--pad-lg);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      box-shadow:
+        0 1px 0 rgba(255,255,255,0.05) inset,
+        0 1px 12px rgba(176,102,255,0.12);
+      font-weight: 700;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
+    .btn-accent {
+      border-color: transparent;
+      background: linear-gradient(135deg,
+                  rgba(92,225,230,0.22),
+                  rgba(176,102,255,0.22));
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: var(--gap-lg);
+      align-items: center; 
+      justify-items: center; 
+    }
+    .card {
+      background: linear-gradient(180deg,
+                  rgba(22,27,34,1),
+                  rgba(22,27,34,0.85));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--pad-lg);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+      height: 380px;
+      display: flex;
+        flex-direction: column;          /* horizontal layout */
+        align-items: center;          /* vertical centering of the child contents */
+        justify-content: space-evenly; /* <-- the key: distributes children evenly */
+    }
+    .tag {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 0.9rem;
+      color: var(--muted);
+      background: rgba(92,225,230,0.08);
+      border: 1px solid rgba(92,225,230,0.25);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+    
+    /* ──────────────────────────────────────────────────────────────────────
+       Typography helpers
+       ────────────────────────────────────────────────────────────────────── */
+    .price {
+      font-size: 3rem;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+      margin: 16px 0 8px;
+      color: #9cf7ff;
+      text-shadow: 0 0 22px rgba(92,225,230,0.35);
+      text-align: center;
+    }
+    .meta {
+      font-size: 1.05rem;
+      color: var(--text);
+      text-align: center;
+    }
+    .small {
+      font-size: 0.95rem;
+      color: var(--muted);
+      text-align: center;
+    }
+    
+    /* ──────────────────────────────────────────────────────────────────────
+       Code block & misc utilities
+       ────────────────────────────────────────────────────────────────────── */
+    pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      max-height: 220px;
+      overflow: auto;
+    }
+    
+    /* Status messages */
+    .status {
+      font-size: 0.95rem;
+      margin-top: var(--gap-sm);
+    }
+    .status.ok   { color: var(--ok); }
+    .status.err  { color: var(--danger); }
+    
+    /* Pill (inline label + value) */
+    .pill {
+      display: inline-flex;
+      gap: var(--gap-sm);
+      align-items: center;
+    }
+    
+    /* Divider */
+    .divider {
+      height: 2px;
+      background: var(--border);
+      margin: var(--gap-lg) 0;
+    }
+    
+    /* Spacer – pushes items to the far side of a flex container */
+    .spacer { flex: 1; }
+    
+    /* Hide utility */
+    .hide { display: none !important; }
+    
+    /* Quick‑tab specific tweaks */
+    #tab-quick .row .pill strong { font-size: 1.1rem; }
+    #routeLabel { font-size: 1.25rem; font-weight: 700; }
+    #quickControls { justify-content: center; gap: var(--gap-md); }
+    
+    /* --------------------------------------------------------------
+       END OF STYLES
+       -------------------------------------------------------------- */
+    </style>
 </head>
 <body>
-  <h1>I-66 Toll Prices (fetch via vai66tolls.com)</h1>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <h1>I‑66 Toll Prices</h1>
+      </div>
+      <span id="globalStatus" class="status muted">Idle.</span>
+    </header>
 
-  <div class="row">
-    <label for="proxy">Optional proxy prefix (needed if CORS blocks you):</label>
-    <input id="proxy" type="url" size="45" placeholder="https://your-proxy.example.com/fetch?url=" />
-    <span class="muted small">Tip: Use a simple pass-through proxy like a Cloudflare Worker or Azure Function and add Access-Control-Allow-Origin: *</span>
+    <nav class="tabs">
+      <button class="tab-button active" data-tab="quick">Quick Pair</button>
+      <button class="tab-button" data-tab="custom">Custom</button>
+    </nav>
+
+    <!-- Quick Pair Tab (simplified, large text, no proxy UI) -->
+    <section id="tab-quick" class="panel">
+      <div class="row" style="justify-content:center">
+        <div class="pill">
+          <span id="routeLabel" class="muted">WB • I‑66 East entry → Rosslyn exit</span>
+        </div>
+      </div>
+      <div id="quickControls" class="row">
+        <button id="switchDir" class="btn btn-accent">Switch Directions</button>
+        <button id="refreshQuick" class="btn">Refresh</button>
+      </div>
+      <div class="divider"></div>
+      <div class="grid" id="quickGrid"></div>
+      <div class="row" style="justify-content:center">
+        <span id="quickStatus" class="status muted">Ready.</span>
+      </div>
+    </section>
+
+    <!-- Custom Tab -->
+    <section id="tab-custom" class="panel hide">
+      <!-- Proxy controls moved here (optional, for CORS) -->
+      <div class="row">
+        <div class="pill">
+          <label for="proxyInput" class="muted">Proxy prefix</label>
+          <input id="proxyInput" type="url" class="text" placeholder="https://your-worker.workers.dev/?url=" />
+          <span class="muted">Use your Cloudflare Worker (?url=). Required due to CORS.</span>
+        </div>
+      </div>
+      <div class="row">
+        <label class="muted">Direction:</label>
+        <label><input type="radio" name="dir" value="east" checked> Eastbound</label>
+        <label><input type="radio" name="dir" value="west"> Westbound</label>
+        <button id="loadEntries" class="btn btn-accent">Load entries</button>
+        <span id="entriesStatus" class="status muted"></span>
+      </div>
+      <div class="row">
+        <label class="muted">Entry:</label>
+        <select id="entrySel" class="select"></select>
+        <button id="loadExits" class="btn">Load exits</button>
+        <span id="exitsStatus" class="status muted"></span>
+      </div>
+      <div class="row">
+        <label class="muted">Or type IDs:</label>
+        <input id="entryId" type="number" class="number" min="1" placeholder="bIntId" />
+        <input id="exitId" type="number" class="number" min="1" placeholder="eIntId" />
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="useCurrent" checked> Use current price</label>
+        <span class="muted">Uncheck to choose date/time</span>
+      </div>
+      <div class="row" id="dtRow" style="display:none">
+        <input id="dtInput" type="datetime-local" class="datetime" />
+        <span class="muted small">Formatted as "MM/DD/YYYY" and "h : mm am|pm"</span>
+      </div>
+      <div class="row">
+        <button id="calcBtn" class="btn btn-accent">Calculate toll</button>
+        <span id="customStatus" class="status muted">Ready.</span>
+      </div>
+      <div class="grid" id="customGrid"></div>
+    </section>
   </div>
-
-  <fieldset>
-    <legend>1) Pick direction, load entries and exits (optional)</legend>
-    <div class="row">
-      <label>Direction:</label>
-      <label><input type="radio" name="dir" value="east" checked> Eastbound</label>
-      <label><input type="radio" name="dir" value="west"> Westbound</label>
-      <button id="loadEntries">Load entries for direction</button>
-      <span id="entriesStatus" class="muted"></span>
-    </div>
-    <div class="row">
-      <label for="entry">Entry:</label>
-      <select id="entry"></select>
-      <button id="loadExits">Load exits for entry</button>
-      <span id="exitsStatus" class="muted"></span>
-    </div>
-    <div class="row small muted">
-      If entries/exits don't populate, you can still type IDs below and calculate directly.
-    </div>
-  </fieldset>
-
-  <fieldset>
-    <legend>2) Or type IDs directly</legend>
-    <div class="row">
-      <label for="entryId">Entry ID (bIntId):</label>
-      <input id="entryId" type="number" min="1" placeholder="e.g., 1" />
-      <label for="exitId">Exit ID (eIntId):</label>
-      <input id="exitId" type="number" min="1" placeholder="e.g., 14" />
-    </div>
-  </fieldset>
-
-  <fieldset>
-    <legend>3) Calculate toll</legend>
-    <div class="row">
-      <label><input type="checkbox" id="useCurrent" checked> Use current price</label>
-      <span class="muted small">Uncheck to choose date/time</span>
-    </div>
-    <div class="row" id="scheduledRow" style="display:none">
-      <label for="dt">Date/time:</label>
-      <input id="dt" type="datetime-local" />
-      <span class="muted small">Will be formatted as "MM/DD/YYYY" and "h : mm am/pm"</span>
-    </div>
-    <div class="row">
-      <button id="calc">Calculate toll</button>
-      <span id="status" class="muted">Idle.</span>
-    </div>
-    <div id="errors"></div>
-  </fieldset>
-
-  <section id="results">
-    <div class="cards" id="cards"></div>
-  </section>
-
-  <details>
-    <summary>Debug</summary>
-    <div id="debug"></div>
-  </details>
 
   <script>
     // Endpoint base
     const BASE = 'https://vai66tolls.com/Index';
 
+    function isNowInRegionWindow(region) {
+        const r = String(region).trim().toLowerCase();
+        const windows = {
+            east: { start: { hour: 5,  minute: 30 }, end: { hour: 9,  minute: 30 } },
+            west: { start: { hour: 15, minute: 0  }, end: { hour: 19, minute: 0  } }
+        };
+        if (!windows[r]) {
+            throw new Error(`Invalid region "${region}". Expected "east" or "west".`);
+        }
+        const now = new Date();
+        const todayAt = (hour, minute) => {
+            const d = new Date(now);
+            d.setHours(hour, minute, 0, 0);
+            return d;
+        };
+        const { start, end } = windows[r];
+        const startDate = todayAt(start.hour, start.minute);
+        const endDate   = todayAt(end.hour,   end.minute);
+        return now >= startDate && now <= endDate;
+    }
+
+    // Preconfigured route labels and optional known ID fallbacks
+    const ROUTES = {
+      WB: {
+        eastbound: false,
+        entryLabel: 'I-66 East',
+        exitLabel: 'Exit 75 - Pentagon/Alexandria',
+        fallback: { bIntId: 15, eIntId: 1 },
+        labelText: 'WB • I-66 West → Exit 75 - Pentagon/Alexandria'
+      },
+      EB: {
+        eastbound: true,
+        entryLabel: 'Exit 75 - Pentagon/Alexandria',
+        exitLabel: 'I-66 West',
+        fallback: { bIntId: 1, eIntId: 14 },
+        labelText: 'EB • Exit 73 - Rosslyn → I‑66 West'
+      }
+    };
+
+    // State
+    let currentQuick = 'WB'; // start with WB
+    let proxyPrefix = '';
+
     // Helpers
-    function logDebug(msg) {
-      const el = document.getElementById('debug');
-      el.textContent += (el.textContent ? '\n' : '') + msg;
-      el.scrollTop = el.scrollHeight;
-    }
-    function setStatus(msg, ok = false) {
-      const el = document.getElementById('status');
+    function $(id) { return document.getElementById(id); }
+    function setGlobalStatus(msg, ok = false, err = false) {
+      const el = $('globalStatus');
       el.textContent = msg;
-      el.className = ok ? 'muted ok' : 'muted';
+      el.className = 'status ' + (err ? 'err' : ok ? 'ok' : 'muted');
     }
-    function setEntriesStatus(msg) {
-      document.getElementById('entriesStatus').textContent = msg || '';
-    }
-    function setExitsStatus(msg) {
-      document.getElementById('exitsStatus').textContent = msg || '';
-    }
-    function showError(err) {
-      const el = document.getElementById('errors');
-      el.textContent = err ? String(err) : '';
-    }
-    function eastboundSelected() {
-      const val = document.querySelector('input[name="dir"]:checked')?.value || 'east';
-      return val === 'east';
+    function setStatus(id, msg, ok = false, err = false) {
+      const el = $(id);
+      el.textContent = msg;
+      el.className = 'status ' + (err ? 'err' : ok ? 'ok' : 'muted');
     }
     function getProxyPrefix() {
-      return document.getElementById('proxy').value.trim();
+      const el = $('proxyInput');
+      const v = el ? el.value.trim() : '';
+      proxyPrefix = v;
+      return v;
     }
     function buildProxiedUrl(target) {
       const proxy = getProxyPrefix();
-      if (!proxy) return target; // try direct; likely CORS will block
+      if (!proxy) return target;
       if (proxy.endsWith('=') || proxy.endsWith('?url=')) {
         return proxy + encodeURIComponent(target);
       }
-      // Path-prefix style (less common). Strip scheme in target for cleaner concat.
       return proxy.replace(/\/$/, '') + '/' + target.replace(/^https?:\/\//, '');
     }
-    async function fetchWithTimeout(url, opts = {}, timeoutMs = 10000) {
+    async function fetchWithTimeout(url, opts = {}, timeoutMs = 12000) {
       const ctrl = new AbortController();
       const to = setTimeout(() => ctrl.abort(), timeoutMs);
       try {
@@ -156,274 +453,313 @@
       let h = d.getHours();
       const m = String(d.getMinutes()).padStart(2, '0');
       const ampm = h >= 12 ? 'pm' : 'am';
-      h = h % 12;
-      if (h === 0) h = 12;
-      // Required format has spaces around colon: "h : mm am|pm"
+      h = h % 12; if (h === 0) h = 12;
       return `${h} : ${m} ${ampm}`;
     }
-
-    // Parse HTML partials to extract options (heuristics)
     function parseOptionsFromHtml(html) {
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const options = [];
-      // <option> elements with numeric values
       doc.querySelectorAll('option').forEach(opt => {
         const val = (opt.getAttribute('value') || '').trim();
         const label = (opt.textContent || '').trim();
-        if (val && /^\d+$/.test(val)) options.push({ id: Number(val), label: label || val });
+        if (val && /^\d+$/.test(val)) options.push({ id: Number(val), label });
       });
-      // Radio/checkbox inputs with numeric values
-      doc.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(inp => {
-        const val = (inp.getAttribute('value') || '').trim();
-        if (val && /^\d+$/.test(val)) {
-          const idAttr = inp.getAttribute('id');
-          let labelText = '';
-          if (idAttr) {
-            const lab = doc.querySelector(`label[for="${CSS.escape(idAttr)}"]`);
-            if (lab) labelText = (lab.textContent || '').trim();
-          }
-          if (!labelText) {
-            // Try sibling text
-            labelText = (inp.parentElement?.textContent || '').trim();
-          }
-          options.push({ id: Number(val), label: labelText || val });
-        }
-      });
-      // Fallback: data-id attributes on elements
-      doc.querySelectorAll('[data-id]').forEach(el => {
-        const val = (el.getAttribute('data-id') || '').trim();
-        const txt = (el.textContent || '').trim();
-        if (val && /^\d+$/.test(val)) options.push({ id: Number(val), label: txt || val });
-      });
-      // Deduplicate by id
-      const seen = new Set();
-      const unique = [];
-      options.forEach(o => {
-        if (!seen.has(o.id)) { seen.add(o.id); unique.push(o); }
-      });
+      const seen = new Set(); const unique = [];
+      for (const o of options) if (!seen.has(o.id)) { seen.add(o.id); unique.push(o); }
       return unique;
     }
-
-    // Populate entries
-    async function loadEntries() {
-      showError('');
-      setEntriesStatus('Loading…');
-      const east = eastboundSelected();
-      const u = new URL(BASE);
-      u.searchParams.set('handler', 'BeginIntPartial');
-      u.searchParams.set('rbEastVal', east ? 'true' : 'false');
-      const target = u.toString();
-      const proxied = buildProxiedUrl(target);
-      logDebug(`GET ${target}`);
-      try {
-        const res = await fetchWithTimeout(proxied, { headers: { 'Accept': 'text/html, */*;q=0.01' } });
-        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-        const ct = res.headers.get('content-type') || '';
-        const html = await res.text();
-        if (!ct.includes('text/html')) {
-          logDebug(`Unexpected content-type for BeginIntPartial: ${ct}`);
-        }
-        const opts = parseOptionsFromHtml(html);
-        const sel = document.getElementById('entry');
-        sel.innerHTML = '';
-        if (!opts.length) {
-          setEntriesStatus('No options found. You may need a proxy or different selectors.');
-          return;
-        }
-        opts.forEach(o => {
-          const opt = document.createElement('option');
-          opt.value = String(o.id);
-          opt.textContent = o.label || String(o.id);
-          sel.appendChild(opt);
-        });
-        // Also reflect first option into "entryId"
-        document.getElementById('entryId').value = String(opts[0].id);
-        setEntriesStatus(`Loaded ${opts.length} entr${opts.length === 1 ? 'y' : 'ies'}.`);
-      } catch (err) {
-        setEntriesStatus('Error.');
-        showError(err);
-        logDebug(String(err));
+    function findIdByLabel(options, labelNeedle) {
+      const needle = (labelNeedle || '').toLowerCase();
+      let best = null;
+      for (const o of options) {
+        const lbl = (o.label || '').toLowerCase();
+        if (lbl.includes(needle)) { best = o.id; break; }
       }
+      return best;
     }
-
-    // Populate exits for selected entry
-    async function loadExits() {
-      showError('');
-      setExitsStatus('Loading…');
-      const east = eastboundSelected();
-      const entrySel = document.getElementById('entry');
-      const entryVal = entrySel.value || document.getElementById('entryId').value;
-      if (!entryVal) {
-        setExitsStatus('Please select or enter an entry ID first.');
-        return;
-      }
-      const u = new URL(BASE);
-      u.searchParams.set('handler', 'ExitIntPartial');
-      u.searchParams.set('bIntId', String(entryVal));
-      u.searchParams.set('rbEastVal', east ? 'true' : 'false');
-      const target = u.toString();
-      const proxied = buildProxiedUrl(target);
-      logDebug(`GET ${target}`);
-      try {
-        const res = await fetchWithTimeout(proxied, { headers: { 'Accept': 'text/html, */*;q=0.01' } });
-        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-        const ct = res.headers.get('content-type') || '';
-        const html = await res.text();
-        if (!ct.includes('text/html')) {
-          logDebug(`Unexpected content-type for ExitIntPartial: ${ct}`);
-        }
-        const opts = parseOptionsFromHtml(html);
-        let exitSel = document.getElementById('exit');
-        if (!exitSel) {
-          exitSel = document.createElement('select');
-          exitSel.id = 'exit';
-          exitSel.style.marginLeft = '0.5rem';
-          const row = document.getElementById('loadExits').parentElement;
-          row.insertBefore(document.createTextNode('Exit:'), document.getElementById('loadExits'));
-          row.insertBefore(exitSel, document.getElementById('loadExits'));
-        }
-        exitSel.innerHTML = '';
-        if (!opts.length) {
-          setExitsStatus('No exit options found. You can type an Exit ID below.');
-          return;
-        }
-        opts.forEach(o => {
-          const opt = document.createElement('option');
-          opt.value = String(o.id);
-          opt.textContent = o.label || String(o.id);
-          exitSel.appendChild(opt);
-        });
-        // Reflect first option into "exitId"
-        document.getElementById('exitId').value = String(opts[0].id);
-        setExitsStatus(`Loaded ${opts.length} exit option(s).`);
-      } catch (err) {
-        setExitsStatus('Error.');
-        showError(err);
-        logDebug(String(err));
-      }
-    }
-
-    function renderTollResult(data) {
-      const cards = document.getElementById('cards');
-      cards.innerHTML = '';
-      // Try to extract a numeric price from common keys
-      const price = extractPrice(data);
-      const div = document.createElement('div');
-      div.className = 'card';
-      const priceText = Number.isFinite(price) ? `$${price.toFixed(2)}` : '—';
-      div.innerHTML = `
-        <div class="price">${priceText}</div>
-        <div class="meta">Raw JSON below</div>
-        <pre class="small mono">${safeJson(data)}</pre>
-      `;
-      cards.appendChild(div);
-    }
-    function safeJson(obj) {
-      try { return JSON.stringify(obj, null, 2); } catch { return String(obj); }
-    }
+    function safeJson(obj) { try { return JSON.stringify(obj, null, 2); } catch { return String(obj); } }
     function extractPrice(obj) {
-      // Heuristics: look for common fields
-      const candidates = ['price', 'toll', 'amount', 'fare', 'total'];
-      for (const key of candidates) {
-        const v = obj && obj[key];
+      if (!obj || typeof obj !== 'object') return NaN;
+      const keys = ['price','toll','amount','total'];
+      for (const k of keys) {
+        const v = obj[k];
         if (typeof v === 'number' && isFinite(v)) return v;
         if (typeof v === 'string') {
           const m = v.match(/[\d.]+/);
           if (m) return Number(m[0]);
         }
       }
-      // Search nested
-      try {
-        const stack = [obj];
-        while (stack.length) {
-          const cur = stack.pop();
-          if (cur && typeof cur === 'object') {
-            for (const [k, v] of Object.entries(cur)) {
-              if (typeof v === 'number' && isFinite(v) && /price|toll|amount|fare|total/i.test(k)) return v;
-              if (typeof v === 'string') {
-                const m = v.match(/\$\s*([\d.]+)/) || v.match(/([\d.]+)/);
-                if (m) return Number(m[1] || m[0]);
-              }
-              if (v && typeof v === 'object') stack.push(v);
+      const stack = [obj];
+      while (stack.length) {
+        const cur = stack.pop();
+        if (cur && typeof cur === 'object') {
+          for (const [k, v] of Object.entries(cur)) {
+            if (typeof v === 'number' && isFinite(v) && /price|toll|amount|total/i.test(k)) return v;
+            if (typeof v === 'string') {
+              const m = v.match(/\$\s*([\d.]+)/) || v.match(/([\d.]+)/);
+              if (m) return Number(m[1] || m[0]);
             }
+            if (v && typeof v === 'object') stack.push(v);
           }
         }
-      } catch {}
+      }
       return NaN;
     }
 
-    async function calculateToll() {
-      showError('');
-      setStatus('Calculating…');
-      const east = eastboundSelected();
-      // Prefer dropdowns if present, else numeric inputs
-      const bIntId = (document.getElementById('entry')?.value || document.getElementById('entryId').value || '').trim();
-      const eIntId = (document.getElementById('exit')?.value || document.getElementById('exitId').value || '').trim();
-      if (!bIntId || !eIntId) {
-        setStatus('Missing entry/exit ID.');
-        showError('Please select or enter both Entry ID (bIntId) and Exit ID (eIntId).');
+    // Quick tab card (minimal)
+    function renderQuickCard(targetEl, title, data, price, note) {
+      const priceText = Number.isFinite(price) ? `$${price.toFixed(2)}` : '—';
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="tag">${title}</div>
+        <div class="price">${priceText}</div>
+        <div class="meta">${note}</div>
+        <div class="small">Updated: ${new Date().toLocaleString()}</div>
+      `;
+      targetEl.appendChild(card);
+    }
+
+    // Decide last-window time for historical estimate
+    function getLastWindowTime(region) {
+      const r = String(region).trim().toLowerCase();
+      if (r === 'east') return { hour: 9, minute: 29, ampm: 'am', text: '9 : 29 am' };
+      if (r === 'west') return { hour: 6 + 12, minute: 59, ampm: 'pm', text: '6 : 59 pm' }; // 18:59  → "6 : 59 pm"
+      throw new Error('Invalid region for last-window time.');
+    }
+
+    // Quick tab logic: discover IDs by label or fallback, then fetch live or last-window estimate
+    async function quickFetch(directionKey) {
+      const cfg = ROUTES[directionKey];
+      $('routeLabel').textContent = cfg.labelText;
+      setStatus('quickStatus', 'Fetching…');
+      setGlobalStatus('Fetching…');
+
+      let bId = null, eId = null;
+      try {
+        // Discover entry IDs
+        const beginUrl = new URL(BASE);
+        beginUrl.searchParams.set('handler', 'BeginIntPartial');
+        beginUrl.searchParams.set('rbEastVal', cfg.eastbound ? 'true' : 'false');
+        const beginRes = await fetchWithTimeout(buildProxiedUrl(beginUrl.toString()), { headers: { 'Accept': 'text/html, */*;q=0.01' } });
+        if (!beginRes.ok) throw new Error(`BeginIntPartial HTTP ${beginRes.status}`);
+        const beginHtml = await beginRes.text();
+        const entryOpts = parseOptionsFromHtml(beginHtml);
+        bId = findIdByLabel(entryOpts, cfg.entryLabel) ?? cfg.fallback?.bIntId ?? null;
+        if (!bId) throw new Error('Entry ID not found; adjust entryLabel or set fallback.bIntId.');
+
+        // Discover exit IDs
+        const exitUrl = new URL(BASE);
+        exitUrl.searchParams.set('handler', 'ExitIntPartial');
+        exitUrl.searchParams.set('bIntId', String(bId));
+        exitUrl.searchParams.set('rbEastVal', cfg.eastbound ? 'true' : 'false');
+        const exitRes = await fetchWithTimeout(buildProxiedUrl(exitUrl.toString()), { headers: { 'Accept': 'text/html, */*;q=0.01' } });
+        if (!exitRes.ok) throw new Error(`ExitIntPartial HTTP ${exitRes.status}`);
+        const exitHtml = await exitRes.text();
+        const exitOpts = parseOptionsFromHtml(exitHtml);
+        eId = findIdByLabel(exitOpts, cfg.exitLabel) ?? cfg.fallback?.eIntId ?? null;
+        if (!eId) throw new Error('Exit ID not found; adjust exitLabel or set fallback.eIntId.');
+      } catch (e) {
+        setStatus('quickStatus', 'Discovery failed.', false, true);
+        setGlobalStatus(String(e), false, true);
         return;
       }
-      const useCurrent = document.getElementById('useCurrent').checked;
-      const u = new URL(BASE);
-      u.searchParams.set('handler', 'TollCalcPartial');
-      u.searchParams.set('bIntId', bIntId);
-      u.searchParams.set('eIntId', eIntId);
-      u.searchParams.set('rbEastVal', east ? 'true' : 'false');
-      u.searchParams.set('isCurrent', useCurrent ? 'true' : 'false');
-      if (!useCurrent) {
-        const dtStr = document.getElementById('dt').value;
-        if (!dtStr) {
-          showError('Please pick a date/time or re-check "Use current price".');
-          setStatus('Awaiting date/time.');
-          return;
-        }
-        const d = new Date(dtStr);
-        const datePicked = fmtMMDDYYYY(d);
-        const timePicked = fmtHColonMmAmPm(d);
-        u.searchParams.set('datePicked', datePicked);
-        u.searchParams.set('timePicked', timePicked);
+
+      const region = cfg.eastbound ? 'east' : 'west';
+      const inWindow = isNowInRegionWindow(region);
+
+      // Build toll request
+      const tollUrl = new URL(BASE);
+      tollUrl.searchParams.set('handler', 'TollCalcPartial');
+      tollUrl.searchParams.set('bIntId', String(bId));
+      tollUrl.searchParams.set('eIntId', String(eId));
+      tollUrl.searchParams.set('rbEastVal', cfg.eastbound ? 'true' : 'false');
+
+      let note = '';
+      if (inWindow) {
+        tollUrl.searchParams.set('isCurrent', 'true');
+        note = 'Live price (within toll window).';
+      } else {
+        tollUrl.searchParams.set('isCurrent', 'false');
+        const today = new Date(); // current_date (local)
+        const { text } = getLastWindowTime(region);
+        tollUrl.searchParams.set('datePicked', fmtMMDDYYYY(today));
+        tollUrl.searchParams.set('timePicked', text);
+        note = `Outside window — showing most recent estimate (today at ${text}).`;
       }
-      const target = u.toString();
-      const proxied = buildProxiedUrl(target);
-      logDebug(`GET ${target}`);
+
       try {
-        const res = await fetchWithTimeout(proxied, { headers: { 'Accept': 'application/json' } });
-        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const res = await fetchWithTimeout(buildProxiedUrl(tollUrl.toString()), { headers: { 'Accept': 'application/json' } });
+        if (!res.ok) throw new Error(`TollCalcPartial HTTP ${res.status}`);
         const ct = res.headers.get('content-type') || '';
-        let data;
-        if (ct.includes('application/json')) {
-          data = await res.json();
-        } else {
-          // Some servers mislabel; try JSON parse, else show text
-          const txt = await res.text();
-          try { data = JSON.parse(txt); } catch { data = { raw: txt }; }
-        }
-        renderTollResult(data);
-        setStatus('OK', true);
-      } catch (err) {
-        setStatus('Error.', false);
-        showError(err);
-        logDebug(String(err));
+        const data = ct.includes('application/json') ? await res.json() : await res.text();
+        const price = extractPrice(data);
+        const grid = $('quickGrid');
+        grid.innerHTML = '';
+        renderQuickCard(grid, cfg.labelText, data, price, note);
+        setStatus('quickStatus', 'OK', true);
+        setGlobalStatus('OK', true);
+      } catch (e) {
+        setStatus('quickStatus', 'Error fetching toll.', false, true);
+        setGlobalStatus(String(e), false, true);
       }
     }
 
-    // UI wiring
-    document.getElementById('loadEntries').addEventListener('click', loadEntries);
-    document.getElementById('loadExits').addEventListener('click', loadExits);
-    document.getElementById('calc').addEventListener('click', calculateToll);
-    document.getElementById('useCurrent').addEventListener('change', (e) => {
-      document.getElementById('scheduledRow').style.display = e.target.checked ? 'none' : 'flex';
+    // Custom tab logic
+    function eastboundSelected() {
+      const val = document.querySelector('input[name="dir"]:checked')?.value || 'east';
+      return val === 'east';
+    }
+    async function loadEntries() {
+      setStatus('entriesStatus', 'Loading…');
+      const east = eastboundSelected();
+      const u = new URL(BASE);
+      u.searchParams.set('handler', 'BeginIntPartial');
+      u.searchParams.set('rbEastVal', east ? 'true' : 'false');
+      try {
+        const res = await fetchWithTimeout(buildProxiedUrl(u.toString()), { headers: { 'Accept': 'text/html, */*;q=0.01' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const html = await res.text();
+        const opts = parseOptionsFromHtml(html);
+        const sel = $('entrySel');
+        sel.innerHTML = '';
+        opts.forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = String(o.id);
+          opt.textContent = o.label || String(o.id);
+          sel.appendChild(opt);
+        });
+        if (opts[0]) $('entryId').value = String(opts[0].id);
+        setStatus('entriesStatus', `Loaded ${opts.length} entries.`, true);
+      } catch (e) {
+        setStatus('entriesStatus', 'Error.', false, true);
+        setGlobalStatus(String(e), false, true);
+      }
+    }
+    async function loadExits() {
+      setStatus('exitsStatus', 'Loading…');
+      const east = eastboundSelected();
+      const bIntId = $('entrySel').value || $('entryId').value;
+      if (!bIntId) { setStatus('exitsStatus', 'Enter/select entry first.'); return; }
+      const u = new URL(BASE);
+      u.searchParams.set('handler', 'ExitIntPartial');
+      u.searchParams.set('bIntId', String(bIntId));
+      u.searchParams.set('rbEastVal', east ? 'true' : 'false');
+      try {
+        const res = await fetchWithTimeout(buildProxiedUrl(u.toString()), { headers: { 'Accept': 'text/html, */*;q=0.01' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const html = await res.text();
+        const opts = parseOptionsFromHtml(html);
+        let exitSel = $('exitSel');
+        if (!exitSel) {
+          exitSel = document.createElement('select');
+          exitSel.id = 'exitSel'; exitSel.className = 'select';
+          const btn = $('loadExits');
+          btn.parentElement.insertBefore(exitSel, btn);
+        }
+        exitSel.innerHTML = '';
+        opts.forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = String(o.id);
+          opt.textContent = o.label || String(o.id);
+          exitSel.appendChild(opt);
+        });
+        if (opts[0]) $('exitId').value = String(opts[0].id);
+        setStatus('exitsStatus', `Loaded ${opts.length} exits.`, true);
+      } catch (e) {
+        setStatus('exitsStatus', 'Error.', false, true);
+        setGlobalStatus(String(e), false, true);
+      }
+    }
+    async function calculateCustom() {
+      setStatus('customStatus', 'Calculating…');
+      const east = eastboundSelected();
+      const bIntId = $('entrySel')?.value || $('entryId').value;
+      const eIntId = $('exitSel')?.value || $('exitId').value;
+      if (!bIntId || !eIntId) {
+        setStatus('customStatus', 'Missing entry/exit.', false, true);
+        return;
+      }
+      const u = new URL(BASE);
+      u.searchParams.set('handler', 'TollCalcPartial');
+      u.searchParams.set('bIntId', String(bIntId));
+      u.searchParams.set('eIntId', String(eIntId));
+      u.searchParams.set('rbEastVal', east ? 'true' : 'false');
+      const useCurrent = $('useCurrent').checked;
+      u.searchParams.set('isCurrent', useCurrent ? 'true' : 'false');
+      if (!useCurrent) {
+        const dtStr = $('dtInput').value;
+        if (!dtStr) { setStatus('customStatus', 'Pick date/time.', false, true); return; }
+        const d = new Date(dtStr);
+        u.searchParams.set('datePicked', fmtMMDDYYYY(d));
+        u.searchParams.set('timePicked', fmtHColonMmAmPm(d));
+      }
+      try {
+        const res = await fetchWithTimeout(buildProxiedUrl(u.toString()), { headers: { 'Accept': 'application/json' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const ct = res.headers.get('content-type') || '';
+        const data = ct.includes('application/json') ? await res.json() : await res.text();
+        const price = extractPrice(data);
+        const grid = $('customGrid');
+        grid.innerHTML = '';
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="tag">${east ? 'EB' : 'WB'} • Entry ${bIntId} → Exit ${eIntId}</div>
+          <div class="price">${Number.isFinite(price) ? `$${price.toFixed(2)}` : '—'}</div>
+          <div class="small">Raw JSON:</div>
+          <pre>${safeJson(data)}</pre>
+        `;
+        grid.appendChild(card);
+        setStatus('customStatus', 'OK', true);
+        setGlobalStatus('OK', true);
+      } catch (e) {
+        setStatus('customStatus', 'Error.', false, true);
+        setGlobalStatus(String(e), false, true);
+      }
+    }
+
+    // Tabs
+    function activateTab(name) {
+      document.querySelectorAll('.tab-button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+      $('tab-quick').classList.toggle('hide', name !== 'quick');
+      $('tab-custom').classList.toggle('hide', name !== 'custom');
+    }
+
+    // Wire up
+    document.querySelectorAll('.tab-button').forEach(btn => {
+      btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+    });
+    $('switchDir').addEventListener('click', async () => {
+      currentQuick = currentQuick === 'WB' ? 'EB' : 'WB';
+      await quickFetch(currentQuick);
+    });
+    $('refreshQuick').addEventListener('click', async () => {
+      await quickFetch(currentQuick);
+    });
+    $('loadEntries').addEventListener('click', loadEntries);
+    $('loadExits').addEventListener('click', loadExits);
+    $('calcBtn').addEventListener('click', calculateCustom);
+    $('useCurrent').addEventListener('change', e => {
+      $('dtRow').style.display = e.target.checked ? 'none' : 'flex';
     });
 
-    // Initialize defaults
+    // Init
     (function init() {
-      // Pre-fill datetime-local with current time
-      const now = new Date();
-      now.setSeconds(0, 0);
+      // Optionally pre-fill proxy (shown only on Custom tab)
+      const proxyEl = $('proxyInput');
+      if (proxyEl) {
+        proxyEl.value = 'https://divine-bush-857d.ben-z-bilbro.workers.dev/?url=';
+      }
+      // Pre-fill datetime-local with current local time
+      const now = new Date(); now.setSeconds(0,0);
       const tzOffset = now.getTimezoneOffset();
       const local = new Date(now.getTime() - tzOffset * 60000);
-      document.getElementById('dt').value = local.toISOString().slice(0, 16);
+      const dtEl = $('dtInput');
+      if (dtEl) dtEl.value = local.toISOString().slice(0,16);
+
+      // First quick fetch
+      quickFetch(currentQuick);
     })();
   </script>
 </body>
