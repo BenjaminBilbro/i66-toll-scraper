@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>I-66 Toll Prices (East and West)</title>
+  <title>I-66 Toll Prices</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
   <style>
@@ -404,7 +404,12 @@
     };
 
     // State
-    let currentQuick = 'WB'; // start with WB
+    let currentQuick = 'EB';
+    if (isNowInRegionWindow('east')) {
+        let currentQuick = 'EB';
+    } else if (isNowInRegionWindow('west')) {
+        currentQuick = 'WB';
+    }
     let proxyPrefix = '';
 
     // Helpers
@@ -585,7 +590,7 @@
         const { text } = getLastWindowTime(region);
         tollUrl.searchParams.set('datePicked', fmtMMDDYYYY(today));
         tollUrl.searchParams.set('timePicked', text);
-        note = `Outside window — showing most recent estimate (today at ${text}).`;
+        note = `<b>No Current Toll!</b> Most recent estimate (today at ${text}).`;
       }
 
       try {
