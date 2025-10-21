@@ -533,6 +533,51 @@
       throw new Error('Invalid region for last-window time.');
     }
 
+    function getCurrentDate() {
+      const now = new Date();
+
+      // Pad month and day with a leading zero when needed
+      const month = String(now.getMonth() + 1).padStart(2, '0'); // months are 0‑11
+      const day   = String(now.getDate()).padStart(2, '0');
+      const year  = now.getFullYear();
+
+      return `${month}/${day}/${year}`;
+    }
+
+    /**
+     * Returns the current time broken out into an easy‑to‑use object.
+     *
+     * Example output:
+     *   {
+     *     hour: 9,
+     *     minute: 29,
+     *     ampm: "am",
+     *     text: "9 : 29 am"
+     *   }
+     */
+    function getCurrentTime() {
+      const now = new Date();
+
+      let hour   = now.getHours();   // 0‑23
+      const minute = now.getMinutes(); // 0‑59
+
+      const ampm = hour >= 12 ? 'pm' : 'am';
+
+      // Convert to 12‑hour clock (1‑12)
+      hour = hour % 12;
+      hour = hour === 0 ? 12 : hour;   // midnight or noon should be 12
+
+      // Build the display string – you can change the spacing/colon style if you like
+      const text = `${hour} : ${String(minute).padStart(2, '0')} ${ampm}`;
+
+      return {
+        hour,
+        minute,
+        ampm,
+        text
+      };
+    }
+
     // Quick tab logic: discover IDs by label or fallback, then fetch live or last-window estimate
     async function quickFetch(directionKey) {
       const cfg = ROUTES[directionKey];
@@ -583,6 +628,10 @@
       let note = '';
       if (inWindow) {
         tollUrl.searchParams.set('isCurrent', 'true');
+        // have to also include the date + time
+        tollUrl.searchParams.set('datePicked', getCurrentDate());
+        const { text } = getCurrentTime();
+        tollUrl.searchParams.set('timePicked', text);
         note = 'Live price (within toll window).';
       } else {
         tollUrl.searchParams.set('isCurrent', 'false');
