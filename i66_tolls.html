@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>I-66 Toll Prices (VDOT vai66tolls.com)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 1rem; }
+    h1 { font-size: 1.4rem; margin: 0 0 0.5rem 0; }
+    .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin: 0.4rem 0; }
+    input[type="url"], input[type="text"], input[type="number"], input[type="datetime-local"], select { padding: 0.35rem; font-size: 0.95rem; }
+    button { padding: 0.4rem 0.7rem; font-size: 0.95rem; }
+    .muted { color: #666; font-size: 0.9rem; }
+    #status { margin-top: 0.25rem; }
+    #errors { color: #b00020; white-space: pre-wrap; margin-top: 0.25rem; }
+    #debug { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; white-space: pre-wrap; border: 1px solid #ddd; border-radius: 6px; padding: 0.5rem; margin-top: 0.5rem; max-height: 240px; overflow: auto; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; margin-top: 0.5rem; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 0.75rem; }
+    .price { font-size: 1.6rem; font-weight: 700; }
+    .meta { font-size: 0.95rem; color: #444; }
+    .ok { color: #0b7a2a; }
+    .warn { color: #8a6d1c; }
+    .grid { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    fieldset { border: 1px solid #ddd; border-radius: 8px; padding: 0.6rem; }
+    legend { padding: 0 0.25rem; }
+    label { margin-right: 0.35rem; }
+    .small { font-size: 0.85rem; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  </style>
+</head>
+<body>
+  <h1>I-66 Toll Prices (fetch via vai66tolls.com)</h1>
+
+  <div class="row">
+    <label for="proxy">Optional proxy prefix (needed if CORS blocks you):</label>
+    <input id="proxy" type="url" size="45" placeholder="https://your-proxy.example.com/fetch?url=" />
+    <span class="muted small">Tip: Use a simple pass-through proxy like a Cloudflare Worker or Azure Function and add Access-Control-Allow-Origin: *</span>
+  </div>
+
+  <fieldset>
+    <legend>1) Pick direction, load entries and exits (optional)</legend>
+    <div class="row">
+      <label>Direction:</label>
+      <label><input type="radio" name="dir" value="east" checked> Eastbound</label>
+      <label><input type="radio" name="dir" value="west"> Westbound</label>
+      <button id="loadEntries">Load entries for direction</button>
+      <span id="entriesStatus" class="muted"></span>
+    </div>
+    <div class="row">
+      <label for="entry">Entry:</label>
+      <select id="entry"></select>
+      <button id="loadExits">Load exits for entry</button>
+      <span id="exitsStatus" class="muted"></span>
+    </div>
+    <div class="row small muted">
+      If entries/exits don't populate, you can still type IDs below and calculate directly.
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>2) Or type IDs directly</legend>
+    <div class="row">
+      <label for="entryId">Entry ID (bIntId):</label>
+      <input id="entryId" type="number" min="1" placeholder="e.g., 1" />
+      <label for="exitId">Exit ID (eIntId):</label>
+      <input id="exitId" type="number" min="1" placeholder="e.g., 14" />
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>3) Calculate toll</legend>
+    <div class="row">
+      <label><input type="checkbox" id="useCurrent" checked> Use current price</label>
+      <span class="muted small">Uncheck to choose date/time</span>
+    </div>
+    <div class="row" id="scheduledRow" style="display:none">
+      <label for="dt">Date/time:</label>
+      <input id="dt" type="datetime-local" />
+      <span class="muted small">Will be formatted as "MM/DD/YYYY" and "h : mm am/pm"</span>
+    </div>
+    <div class="row">
+      <button id="calc">Calculate toll</button>
+      <span id="status" class="muted">Idle.</span>
+    </div>
+    <div id="errors"></div>
+  </fieldset>
+
+  <section id="results">
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <details>
+    <summary>Debug</summary>
+    <div id="debug"></div>
+  </details>
+
+  <script>
+    // Endpoint base
+    const BASE = 'https://vai66tolls.com/Index';
+
+    // Helpers
+    function logDebug(msg) {
+      const el = document.getElementById('debug');
+      el.textContent += (el.textContent ? '\n' : '') + msg;
+      el.scrollTop = el.scrollHeight;
+    }
+    function setStatus(msg, ok = false) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = ok ? 'muted ok' : 'muted';
+    }
+    function setEntriesStatus(msg) {
+      document.getElementById('entriesStatus').textContent = msg || '';
+    }
+    function setExitsStatus(msg) {
+      document.getElementById('exitsStatus').textContent = msg || '';
+    }
+    function showError(err) {
+      const el = document.getElementById('errors');
+      el.textContent = err ? String(err) : '';
+    }
+    function eastboundSelected() {
+      const val = document.querySelector('input[name="dir"]:checked')?.value || 'east';
+      return val === 'east';
+    }
+    function getProxyPrefix() {
+      return document.getElementById('proxy').value.trim();
+    }
+    function buildProxiedUrl(target) {
+      const proxy = getProxyPrefix();
+      if (!proxy) return target; // try direct; likely CORS will block
+      if (proxy.endsWith('=') || proxy.endsWith('?url=')) {
+        return proxy + encodeURIComponent(target);
+      }
+      // Path-prefix style (less common). Strip scheme in target for cleaner concat.
+      return proxy.replace(/\/$/, '') + '/' + target.replace(/^https?:\/\//, '');
+    }
+    async function fetchWithTimeout(url, opts = {}, timeoutMs = 10000) {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { ...opts, signal: ctrl.signal, cache: 'no-cache' });
+        return res;
+      } finally {
+        clearTimeout(to);
+      }
+    }
+    function fmtMMDDYYYY(d) {
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const yyyy = String(d.getFullYear());
+      return `${mm}/${dd}/${yyyy}`;
+    }
+    function fmtHColonMmAmPm(d) {
+      let h = d.getHours();
+      const m = String(d.getMinutes()).padStart(2, '0');
+      const ampm = h >= 12 ? 'pm' : 'am';
+      h = h % 12;
+      if (h === 0) h = 12;
+      // Required format has spaces around colon: "h : mm am|pm"
+      return `${h} : ${m} ${ampm}`;
+    }
+
+    // Parse HTML partials to extract options (heuristics)
+    function parseOptionsFromHtml(html) {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const options = [];
+      // <option> elements with numeric values
+      doc.querySelectorAll('option').forEach(opt => {
+        const val = (opt.getAttribute('value') || '').trim();
+        const label = (opt.textContent || '').trim();
+        if (val && /^\d+$/.test(val)) options.push({ id: Number(val), label: label || val });
+      });
+      // Radio/checkbox inputs with numeric values
+      doc.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(inp => {
+        const val = (inp.getAttribute('value') || '').trim();
+        if (val && /^\d+$/.test(val)) {
+          const idAttr = inp.getAttribute('id');
+          let labelText = '';
+          if (idAttr) {
+            const lab = doc.querySelector(`label[for="${CSS.escape(idAttr)}"]`);
+            if (lab) labelText = (lab.textContent || '').trim();
+          }
+          if (!labelText) {
+            // Try sibling text
+            labelText = (inp.parentElement?.textContent || '').trim();
+          }
+          options.push({ id: Number(val), label: labelText || val });
+        }
+      });
+      // Fallback: data-id attributes on elements
+      doc.querySelectorAll('[data-id]').forEach(el => {
+        const val = (el.getAttribute('data-id') || '').trim();
+        const txt = (el.textContent || '').trim();
+        if (val && /^\d+$/.test(val)) options.push({ id: Number(val), label: txt || val });
+      });
+      // Deduplicate by id
+      const seen = new Set();
+      const unique = [];
+      options.forEach(o => {
+        if (!seen.has(o.id)) { seen.add(o.id); unique.push(o); }
+      });
+      return unique;
+    }
+
+    // Populate entries
+    async function loadEntries() {
+      showError('');
+      setEntriesStatus('Loading…');
+      const east = eastboundSelected();
+      const u = new URL(BASE);
+      u.searchParams.set('handler', 'BeginIntPartial');
+      u.searchParams.set('rbEastVal', east ? 'true' : 'false');
+      const target = u.toString();
+      const proxied = buildProxiedUrl(target);
+      logDebug(`GET ${target}`);
+      try {
+        const res = await fetchWithTimeout(proxied, { headers: { 'Accept': 'text/html, */*;q=0.01' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const ct = res.headers.get('content-type') || '';
+        const html = await res.text();
+        if (!ct.includes('text/html')) {
+          logDebug(`Unexpected content-type for BeginIntPartial: ${ct}`);
+        }
+        const opts = parseOptionsFromHtml(html);
+        const sel = document.getElementById('entry');
+        sel.innerHTML = '';
+        if (!opts.length) {
+          setEntriesStatus('No options found. You may need a proxy or different selectors.');
+          return;
+        }
+        opts.forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = String(o.id);
+          opt.textContent = o.label || String(o.id);
+          sel.appendChild(opt);
+        });
+        // Also reflect first option into "entryId"
+        document.getElementById('entryId').value = String(opts[0].id);
+        setEntriesStatus(`Loaded ${opts.length} entr${opts.length === 1 ? 'y' : 'ies'}.`);
+      } catch (err) {
+        setEntriesStatus('Error.');
+        showError(err);
+        logDebug(String(err));
+      }
+    }
+
+    // Populate exits for selected entry
+    async function loadExits() {
+      showError('');
+      setExitsStatus('Loading…');
+      const east = eastboundSelected();
+      const entrySel = document.getElementById('entry');
+      const entryVal = entrySel.value || document.getElementById('entryId').value;
+      if (!entryVal) {
+        setExitsStatus('Please select or enter an entry ID first.');
+        return;
+      }
+      const u = new URL(BASE);
+      u.searchParams.set('handler', 'ExitIntPartial');
+      u.searchParams.set('bIntId', String(entryVal));
+      u.searchParams.set('rbEastVal', east ? 'true' : 'false');
+      const target = u.toString();
+      const proxied = buildProxiedUrl(target);
+      logDebug(`GET ${target}`);
+      try {
+        const res = await fetchWithTimeout(proxied, { headers: { 'Accept': 'text/html, */*;q=0.01' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const ct = res.headers.get('content-type') || '';
+        const html = await res.text();
+        if (!ct.includes('text/html')) {
+          logDebug(`Unexpected content-type for ExitIntPartial: ${ct}`);
+        }
+        const opts = parseOptionsFromHtml(html);
+        let exitSel = document.getElementById('exit');
+        if (!exitSel) {
+          exitSel = document.createElement('select');
+          exitSel.id = 'exit';
+          exitSel.style.marginLeft = '0.5rem';
+          const row = document.getElementById('loadExits').parentElement;
+          row.insertBefore(document.createTextNode('Exit:'), document.getElementById('loadExits'));
+          row.insertBefore(exitSel, document.getElementById('loadExits'));
+        }
+        exitSel.innerHTML = '';
+        if (!opts.length) {
+          setExitsStatus('No exit options found. You can type an Exit ID below.');
+          return;
+        }
+        opts.forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = String(o.id);
+          opt.textContent = o.label || String(o.id);
+          exitSel.appendChild(opt);
+        });
+        // Reflect first option into "exitId"
+        document.getElementById('exitId').value = String(opts[0].id);
+        setExitsStatus(`Loaded ${opts.length} exit option(s).`);
+      } catch (err) {
+        setExitsStatus('Error.');
+        showError(err);
+        logDebug(String(err));
+      }
+    }
+
+    function renderTollResult(data) {
+      const cards = document.getElementById('cards');
+      cards.innerHTML = '';
+      // Try to extract a numeric price from common keys
+      const price = extractPrice(data);
+      const div = document.createElement('div');
+      div.className = 'card';
+      const priceText = Number.isFinite(price) ? `$${price.toFixed(2)}` : '—';
+      div.innerHTML = `
+        <div class="price">${priceText}</div>
+        <div class="meta">Raw JSON below</div>
+        <pre class="small mono">${safeJson(data)}</pre>
+      `;
+      cards.appendChild(div);
+    }
+    function safeJson(obj) {
+      try { return JSON.stringify(obj, null, 2); } catch { return String(obj); }
+    }
+    function extractPrice(obj) {
+      // Heuristics: look for common fields
+      const candidates = ['price', 'toll', 'amount', 'fare', 'total'];
+      for (const key of candidates) {
+        const v = obj && obj[key];
+        if (typeof v === 'number' && isFinite(v)) return v;
+        if (typeof v === 'string') {
+          const m = v.match(/[\d.]+/);
+          if (m) return Number(m[0]);
+        }
+      }
+      // Search nested
+      try {
+        const stack = [obj];
+        while (stack.length) {
+          const cur = stack.pop();
+          if (cur && typeof cur === 'object') {
+            for (const [k, v] of Object.entries(cur)) {
+              if (typeof v === 'number' && isFinite(v) && /price|toll|amount|fare|total/i.test(k)) return v;
+              if (typeof v === 'string') {
+                const m = v.match(/\$\s*([\d.]+)/) || v.match(/([\d.]+)/);
+                if (m) return Number(m[1] || m[0]);
+              }
+              if (v && typeof v === 'object') stack.push(v);
+            }
+          }
+        }
+      } catch {}
+      return NaN;
+    }
+
+    async function calculateToll() {
+      showError('');
+      setStatus('Calculating…');
+      const east = eastboundSelected();
+      // Prefer dropdowns if present, else numeric inputs
+      const bIntId = (document.getElementById('entry')?.value || document.getElementById('entryId').value || '').trim();
+      const eIntId = (document.getElementById('exit')?.value || document.getElementById('exitId').value || '').trim();
+      if (!bIntId || !eIntId) {
+        setStatus('Missing entry/exit ID.');
+        showError('Please select or enter both Entry ID (bIntId) and Exit ID (eIntId).');
+        return;
+      }
+      const useCurrent = document.getElementById('useCurrent').checked;
+      const u = new URL(BASE);
+      u.searchParams.set('handler', 'TollCalcPartial');
+      u.searchParams.set('bIntId', bIntId);
+      u.searchParams.set('eIntId', eIntId);
+      u.searchParams.set('rbEastVal', east ? 'true' : 'false');
+      u.searchParams.set('isCurrent', useCurrent ? 'true' : 'false');
+      if (!useCurrent) {
+        const dtStr = document.getElementById('dt').value;
+        if (!dtStr) {
+          showError('Please pick a date/time or re-check "Use current price".');
+          setStatus('Awaiting date/time.');
+          return;
+        }
+        const d = new Date(dtStr);
+        const datePicked = fmtMMDDYYYY(d);
+        const timePicked = fmtHColonMmAmPm(d);
+        u.searchParams.set('datePicked', datePicked);
+        u.searchParams.set('timePicked', timePicked);
+      }
+      const target = u.toString();
+      const proxied = buildProxiedUrl(target);
+      logDebug(`GET ${target}`);
+      try {
+        const res = await fetchWithTimeout(proxied, { headers: { 'Accept': 'application/json' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+        const ct = res.headers.get('content-type') || '';
+        let data;
+        if (ct.includes('application/json')) {
+          data = await res.json();
+        } else {
+          // Some servers mislabel; try JSON parse, else show text
+          const txt = await res.text();
+          try { data = JSON.parse(txt); } catch { data = { raw: txt }; }
+        }
+        renderTollResult(data);
+        setStatus('OK', true);
+      } catch (err) {
+        setStatus('Error.', false);
+        showError(err);
+        logDebug(String(err));
+      }
+    }
+
+    // UI wiring
+    document.getElementById('loadEntries').addEventListener('click', loadEntries);
+    document.getElementById('loadExits').addEventListener('click', loadExits);
+    document.getElementById('calc').addEventListener('click', calculateToll);
+    document.getElementById('useCurrent').addEventListener('change', (e) => {
+      document.getElementById('scheduledRow').style.display = e.target.checked ? 'none' : 'flex';
+    });
+
+    // Initialize defaults
+    (function init() {
+      // Pre-fill datetime-local with current time
+      const now = new Date();
+      now.setSeconds(0, 0);
+      const tzOffset = now.getTimezoneOffset();
+      const local = new Date(now.getTime() - tzOffset * 60000);
+      document.getElementById('dt').value = local.toISOString().slice(0, 16);
+    })();
+  </script>
+</body>
+</html>
