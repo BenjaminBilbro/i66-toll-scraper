@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>I-66 Combined Tolls</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <style>
+    /* ──────────────────────────────────────────────────────────────────────
+       Root variables – colours + spacing helpers
+       ────────────────────────────────────────────────────────────────────── */
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --panel-2: #0f141a;
+      --text: #e6edf3;
+      --muted: #8b98a5;
+      --accent: #5ce1e6;   /* teal */
+      --accent-2: #b066ff;/* purple */
+      --danger: #ff5c8d;
+      --ok: #6ee7b7;
+      --border: #263241;
+      --shadow: 0 8px 24px rgba(0,0,0,0.35);
+      --radius: 18px;
+      --gap-sm: 8px;
+      --gap-md: 16px;
+      --gap-lg: 24px;
+      --pad-sm: 10px;
+      --pad-md: 14px;
+      --pad-lg: 20px;
+    }
+    
+    /* ──────────────────────────────────────────────────────────────────────
+       Global page layout
+       ────────────────────────────────────────────────────────────────────── */
+    html, body {
+      background:
+        radial-gradient(1200px 800px at 85% -20%, rgba(176,102,255,0.10), transparent) fixed,
+        radial-gradient(800px 800px at -10% 110%, rgba(92,225,230,0.08), transparent) fixed,
+        var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      margin: 0;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: var(--gap-lg) var(--gap-md);
+    }
+    
+    /* ──────────────────────────────────────────────────────────────────────
+       Header & navigation tabs
+       ────────────────────────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--gap-md);
+      margin-bottom: var(--gap-lg);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: var(--gap-md);
+    }
+    .logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(92,225,230,0.35), rgba(176,102,255,0.35));
+      box-shadow: inset 0 0 22px rgba(176,102,255,0.25), inset 0 0 16px rgba(92,225,230,0.25), var(--shadow);
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin: 0;
+      letter-spacing: 0.2px;
+    }
+    .muted {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: var(--gap-md);
+      border-bottom: 1px solid var(--border);
+      margin-top: var(--gap-lg);
+      overflow-x: auto;
+    }
+    .tab-button {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      padding: var(--pad-sm) var(--pad-md);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+    }
+    .tab-button.active {
+      color: var(--text);
+      border-color: var(--accent);
+      background: linear-gradient(180deg, rgba(92,225,230,0.12), transparent);
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
+    }
+    
+    /* ──────────────────────────────────────────────────────────────────────
+       Panels, rows & form controls
+       ────────────────────────────────────────────────────────────────────── */
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: var(--pad-lg);
+      margin-top: var(--gap-sm);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .row {
+      display: flex;
+      gap: var(--gap-md);
+      align-items: center;
+      flex-wrap: wrap;
+      margin: var(--gap-sm) 0;
+      width: 100%;
+      justify-content: center;
+    }
+    
+    .btn, .select, .text, .number, .datetime {
+      font-size: 1rem;
+      padding: var(--pad-md) var(--pad-lg);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .select { max-width: 100%; }
+    .btn {
+      box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 1px 12px rgba(176,102,255,0.12);
+      font-weight: 700;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
+    .btn-accent {
+      border-color: transparent;
+      background: linear-gradient(135deg, rgba(92,225,230,0.22), rgba(176,102,255,0.22));
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: var(--gap-lg);
+      width: 100%;
+      margin-top: var(--gap-lg);
+    }
+    .card {
+      background: linear-gradient(180deg, rgba(22,27,34,1), rgba(22,27,34,0.85));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: var(--pad-lg);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-evenly;
+    }
+    .tag {
+      font-size: 0.85rem;
+      color: var(--muted);
+      background: rgba(92,225,230,0.08);
+      border: 1px solid rgba(92,225,230,0.25);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    
+    .price {
+      font-size: 3rem;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+      margin: 16px 0 8px;
+      color: #9cf7ff;
+      text-shadow: 0 0 22px rgba(92,225,230,0.35);
+      text-align: center;
+    }
+    .meta {
+      font-size: 1.05rem;
+      color: var(--text);
+      text-align: center;
+    }
+    .small {
+      font-size: 0.9rem;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 8px;
+    }
+    
+    pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.8rem;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      max-height: 200px;
+      width: 100%;
+      overflow: auto;
+      margin-top: 10px;
+    }
+    
+    .status {
+      font-size: 0.95rem;
+      margin-top: var(--gap-sm);
+    }
+    .status.ok   { color: var(--ok); }
+    .status.err  { color: var(--danger); }
+    
+    .pill {
+      display: inline-flex;
+      gap: var(--gap-sm);
+      align-items: center;
+      background: var(--panel-2);
+      padding: 5px 15px;
+      border-radius: 99px;
+      border: 1px solid var(--border);
+    }
+    
+    .hide { display: none !important; }
+    
+    /* Specific overrides */
+    #tab-quick .row .pill strong { font-size: 1.1rem; }
+    #routeLabel { font-size: 1.25rem; font-weight: 700; text-align: center; }
+    #quickControls { justify-content: center; gap: var(--gap-md); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <h1>I‑66 Combined Tolls</h1>
+      </div>
+      <div class="pill">
+        <label for="proxyInput" class="muted" style="margin-right:5px">Proxy:</label>
+        <input id="proxyInput" type="text" class="text" style="padding:4px 8px; font-size:0.8rem; width:200px;" value="https://divine-bush-857d.ben-z-bilbro.workers.dev/?url=" />
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab-button active" data-tab="quick">Inside Beltway (Quick)</button>
+      <button class="tab-button" data-tab="custom">Inside Beltway (Custom)</button>
+      <button class="tab-button" data-tab="ride66">Ride 66 (Outside)</button>
+    </nav>
+
+    <!-- TAB 1: Quick Pair (Inside Beltway) -->
+    <section id="tab-quick" class="panel">
+      <div class="row" style="justify-content:center">
+        <div class="pill">
+          <span id="routeLabel" class="muted">WB • I‑66 East entry → Rosslyn exit</span>
+        </div>
+      </div>
+      <div id="quickControls" class="row">
+        <button id="switchDir" class="btn btn-accent">Switch Directions</button>
+        <button id="refreshQuick" class="btn">Refresh</button>
+      </div>
+      <div class="grid" id="quickGrid"></div>
+      <div class="row" style="justify-content:center">
+        <span id="quickStatus" class="status muted">Ready.</span>
+      </div>
+    </section>
+
+    <!-- TAB 2: Custom (Inside Beltway) -->
+    <section id="tab-custom" class="panel hide">
+      <div class="row">
+        <label class="muted">Direction:</label>
+        <label><input type="radio" name="dir" value="east" checked> Eastbound</label>
+        <label><input type="radio" name="dir" value="west"> Westbound</label>
+        <button id="loadEntries" class="btn btn-accent">Load entries</button>
+        <span id="entriesStatus" class="status muted"></span>
+      </div>
+      <div class="row">
+        <label class="muted">Entry:</label>
+        <select id="entrySel" class="select"><option value="">-- Load First --</option></select>
+        <button id="loadExits" class="btn">Load exits</button>
+        <span id="exitsStatus" class="status muted"></span>
+      </div>
+      <div class="row">
+        <label class="muted">Exit:</label>
+        <select id="exitSel" class="select"><option value="">-- Load First --</option></select>
+      </div>
+      <div class="row">
+        <button id="calcBtn" class="btn btn-accent">Calculate toll</button>
+        <span id="customStatus" class="status muted">Ready.</span>
+      </div>
+      <div class="grid" id="customGrid"></div>
+    </section>
+
+    <!-- TAB 3: Ride 66 (Outside Beltway) -->
+    <section id="tab-ride66" class="panel hide">
+      <div class="row">
+        <div class="pill">
+          <span class="muted">Warning: This endpoint returns a massive dataset. Filtering is done locally.</span>
+        </div>
+      </div>
+      <div class="row">
+        <button id="ride66LoadConfig" class="btn btn-accent">1. Load Locations</button>
+        <span id="ride66ConfigStatus" class="status muted">Click to fetch list</span>
+      </div>
+      <div class="row">
+        <label class="muted">Direction:</label>
+        <select id="ride66Dir" class="select">
+          <option value="wb">Westbound (Away from DC)</option>
+          <option value="eb">Eastbound (Towards DC)</option>
+        </select>
+      </div>
+      <div class="row">
+        <label class="muted">Start:</label>
+        <select id="ride66Start" class="select"><option>-- Load Config First --</option></select>
+      </div>
+      <div class="row">
+        <label class="muted">End:</label>
+        <select id="ride66End" class="select"><option>-- Load Config First --</option></select>
+      </div>
+      <div class="row">
+        <button id="ride66Calc" class="btn btn-accent">2. Get Rates</button>
+        <span id="ride66Status" class="status muted">Ready.</span>
+      </div>
+      <div class="grid" id="ride66Grid"></div>
+    </section>
+  </div>
+
+  <script>
+    // ─────────────────────────────────────────────────────────────────────────────
+    // CONFIGURATION & HELPERS
+    // ─────────────────────────────────────────────────────────────────────────────
+    const INSIDE_BASE = 'https://vai66tolls.com/Index';
+    const RIDE66_PAGE = 'https://ride66express.com/pricing/plan-your-trip/';
+    const RIDE66_API  = 'https://ride66express.com/wp-content/themes/i66/theme-ajax.php';
+
+    function $(id) { return document.getElementById(id); }
+    function setStatus(id, msg, ok = false, err = false) {
+      const el = $(id);
+      el.textContent = msg;
+      el.className = 'status ' + (err ? 'err' : ok ? 'ok' : 'muted');
+    }
+
+    function getProxyPrefix() {
+      const v = $('proxyInput').value.trim();
+      return v;
+    }
+
+    // Supports optional POST body
+    function buildProxiedUrl(target) {
+      const proxy = getProxyPrefix();
+      if (!proxy) return target;
+      if (proxy.endsWith('=') || proxy.includes('?url=')) {
+        return proxy + encodeURIComponent(target);
+      }
+      return proxy.replace(/\/$/, '') + '/' + target.replace(/^https?:\/\//, '');
+    }
+
+    async function fetchWithTimeout(url, opts = {}, timeoutMs = 25000) {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), timeoutMs);
+      
+      // If using a simple GET proxy, we just modify the URL.
+      // If POST, we must ensure the proxy supports forwarding the body.
+      // Assuming a standard "CORS Anywhere" style proxy for GET, 
+      // but for POST we treat it carefully.
+      
+      const proxiedUrl = buildProxiedUrl(url);
+      
+      try {
+        const res = await fetch(proxiedUrl, { ...opts, signal: ctrl.signal });
+        return res;
+      } finally {
+        clearTimeout(to);
+      }
+    }
+
+    function parseOptionsFromHtml(html) {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const options = [];
+      doc.querySelectorAll('option').forEach(opt => {
+        const val = (opt.getAttribute('value') || '').trim();
+        const label = (opt.textContent || '').trim();
+        if (val && /^\d+$/.test(val)) options.push({ id: Number(val), label });
+      });
+      // Dedupe
+      const seen = new Set(); const unique = [];
+      for (const o of options) if (!seen.has(o.id)) { seen.add(o.id); unique.push(o); }
+      return unique;
+    }
+
+    function extractPrice(obj) {
+      if (!obj || typeof obj !== 'object') return NaN;
+      if (typeof obj === 'number') return obj;
+      // Look for known keys
+      const keys = ['rateAmountTag', 'price','toll','amount','total'];
+      for (const k of keys) {
+        const v = obj[k];
+        if (typeof v === 'number' && isFinite(v)) return v;
+      }
+      return NaN;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // LOGIC: INSIDE BELTWAY (VAI66TOLLS)
+    // ─────────────────────────────────────────────────────────────────────────────
+    
+    // Quick Pair Config
+    const INSIDE_ROUTES = {
+      WB: {
+        eastbound: false,
+        entryLabel: 'I-66 East',
+        exitLabel: 'Exit 75 - Pentagon/Alexandria',
+        fallback: { bIntId: 15, eIntId: 1 },
+        labelText: 'WB • I-66 West → Exit 75 - Pentagon'
+      },
+      EB: {
+        eastbound: true,
+        entryLabel: 'Exit 75 - Pentagon/Alexandria',
+        exitLabel: 'I-66 West',
+        fallback: { bIntId: 1, eIntId: 14 },
+        labelText: 'EB • Exit 73 - Rosslyn → I‑66 West'
+      }
+    };
+    let currentQuick = 'EB';
+
+    async function quickFetch(directionKey) {
+      const cfg = INSIDE_ROUTES[directionKey];
+      $('routeLabel').textContent = cfg.labelText;
+      setStatus('quickStatus', 'Fetching Inside Beltway...');
+      
+      let bId = null, eId = null;
+      try {
+        // 1. Discovery
+        const beginUrl = new URL(INSIDE_BASE);
+        beginUrl.searchParams.set('handler', 'BeginIntPartial');
+        beginUrl.searchParams.set('rbEastVal', cfg.eastbound ? 'true' : 'false');
+        
+        const beginRes = await fetchWithTimeout(beginUrl.toString());
+        const beginHtml = await beginRes.text();
+        const entryOpts = parseOptionsFromHtml(beginHtml);
+        
+        // Simple fuzzy match or fallback
+        const findId = (list, name) => list.find(o => o.label.includes(name))?.id;
+        bId = findId(entryOpts, cfg.entryLabel) || cfg.fallback.bIntId;
+
+        const exitUrl = new URL(INSIDE_BASE);
+        exitUrl.searchParams.set('handler', 'ExitIntPartial');
+        exitUrl.searchParams.set('bIntId', String(bId));
+        exitUrl.searchParams.set('rbEastVal', cfg.eastbound ? 'true' : 'false');
+        
+        const exitRes = await fetchWithTimeout(exitUrl.toString());
+        const exitHtml = await exitRes.text();
+        const exitOpts = parseOptionsFromHtml(exitHtml);
+        eId = findId(exitOpts, cfg.exitLabel) || cfg.fallback.eIntId;
+
+        // 2. Calculation
+        const tollUrl = new URL(INSIDE_BASE);
+        tollUrl.searchParams.set('handler', 'TollCalcPartial');
+        tollUrl.searchParams.set('bIntId', String(bId));
+        tollUrl.searchParams.set('eIntId', String(eId));
+        tollUrl.searchParams.set('rbEastVal', cfg.eastbound ? 'true' : 'false');
+        
+        // Inside beltway logic usually relies on "isCurrent=true" unless off-hours
+        // For simplicity using current
+        tollUrl.searchParams.set('isCurrent', 'true');
+        const now = new Date();
+        tollUrl.searchParams.set('datePicked', now.toLocaleDateString('en-US')); // rough format
+        tollUrl.searchParams.set('timePicked', now.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'}));
+
+        const res = await fetchWithTimeout(tollUrl.toString(), { headers: { 'Accept': 'application/json' } });
+        const ct = res.headers.get('content-type') || '';
+        const data = ct.includes('application/json') ? await res.json() : await res.text();
+        
+        const price = extractPrice(data); // Will extract form data if object
+        
+        const grid = $('quickGrid');
+        grid.innerHTML = '';
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="tag">Inside Beltway</div>
+          <div class="price">${Number.isFinite(price) ? '$'+price.toFixed(2) : 'No Toll'}</div>
+          <div class="meta">${cfg.labelText}</div>
+          <div class="small">Updated: ${new Date().toLocaleTimeString()}</div>
+        `;
+        grid.appendChild(card);
+        setStatus('quickStatus', 'OK', true);
+
+      } catch (e) {
+        console.error(e);
+        setStatus('quickStatus', 'Error: ' + e.message, false, true);
+      }
+    }
+
+    // Custom Tab Logic (Inside)
+    async function loadInsideEntries() {
+      setStatus('entriesStatus', 'Loading...');
+      const east = document.querySelector('input[name="dir"]:checked').value === 'east';
+      const u = new URL(INSIDE_BASE);
+      u.searchParams.set('handler', 'BeginIntPartial');
+      u.searchParams.set('rbEastVal', east ? 'true' : 'false');
+      try {
+        const res = await fetchWithTimeout(u.toString());
+        const html = await res.text();
+        const opts = parseOptionsFromHtml(html);
+        const sel = $('entrySel');
+        sel.innerHTML = '<option value="">-- Select --</option>';
+        opts.forEach(o => {
+          sel.innerHTML += `<option value="${o.id}">${o.label}</option>`;
+        });
+        setStatus('entriesStatus', `Loaded ${opts.length}`, true);
+      } catch(e) { setStatus('entriesStatus', 'Error', false, true); }
+    }
+
+    async function loadInsideExits() {
+      const bId = $('entrySel').value;
+      if(!bId) return;
+      setStatus('exitsStatus', 'Loading...');
+      const east = document.querySelector('input[name="dir"]:checked').value === 'east';
+      const u = new URL(INSIDE_BASE);
+      u.searchParams.set('handler', 'ExitIntPartial');
+      u.searchParams.set('bIntId', bId);
+      u.searchParams.set('rbEastVal', east ? 'true' : 'false');
+      try {
+        const res = await fetchWithTimeout(u.toString());
+        const html = await res.text();
+        const opts = parseOptionsFromHtml(html);
+        const sel = $('exitSel');
+        sel.innerHTML = '<option value="">-- Select --</option>';
+        opts.forEach(o => {
+          sel.innerHTML += `<option value="${o.id}">${o.label}</option>`;
+        });
+        setStatus('exitsStatus', `Loaded ${opts.length}`, true);
+      } catch(e) { setStatus('exitsStatus', 'Error', false, true); }
+    }
+
+    async function calcInsideCustom() {
+      const bId = $('entrySel').value;
+      const eId = $('exitSel').value;
+      if(!bId || !eId) { setStatus('customStatus', 'Select points', false, true); return; }
+      
+      const east = document.querySelector('input[name="dir"]:checked').value === 'east';
+      const u = new URL(INSIDE_BASE);
+      u.searchParams.set('handler', 'TollCalcPartial');
+      u.searchParams.set('bIntId', bId);
+      u.searchParams.set('eIntId', eId);
+      u.searchParams.set('rbEastVal', east ? 'true' : 'false');
+      u.searchParams.set('isCurrent', 'true');
+      const now = new Date();
+      u.searchParams.set('datePicked', now.toLocaleDateString('en-US')); 
+      u.searchParams.set('timePicked', now.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'}));
+
+      try {
+        setStatus('customStatus', 'Calc...');
+        const res = await fetchWithTimeout(u.toString(), { headers: {'Accept':'application/json'}});
+        const data = await res.json();
+        const price = extractPrice(data);
+        
+        const grid = $('customGrid');
+        grid.innerHTML = '';
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="tag">Inside Beltway</div>
+          <div class="price">${Number.isFinite(price) ? '$'+price.toFixed(2) : 'No Toll'}</div>
+          <div class="meta">Entry ${bId} → Exit ${eId}</div>
+        `;
+        grid.appendChild(card);
+        setStatus('customStatus', 'Done', true);
+      } catch(e) { setStatus('customStatus', 'Error', false, true); }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // RIDE 66 (OUTSIDE BELTWAY) LOGIC
+    // ─────────────────────────────────────────────────────────────────────────────
+    
+    // Constants
+    // const RIDE66_PAGE = 'https://ride66express.com/pricing/plan-your-trip/';
+    // const RIDE66_API  = 'https://ride66express.com/wp-content/themes/i66/theme-ajax.php';
+    
+    // Global store for the scraped dropdown options
+    let ride66Data = {
+      options: [] 
+    };
+
+    // 1. Load Locations (Scrape)
+    async function loadRide66Config() {
+      setStatus('ride66ConfigStatus', 'Fetching page...');
+      try {
+        const u = buildProxiedUrl(RIDE66_PAGE);
+        const res = await fetchWithTimeout(u);
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        const html = await res.text();
+        
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        // Find all option elements in the page
+        const opts = Array.from(doc.querySelectorAll('option'))
+          .map(o => ({ id: o.value, label: o.textContent.trim() }))
+          .filter(o => o.id && /^\d+$/.test(o.id)); // Only numeric IDs
+
+        // Deduplicate
+        const uniqueMap = new Map();
+        opts.forEach(o => uniqueMap.set(o.id, o.label));
+        
+        ride66Data.options = Array.from(uniqueMap.entries())
+          .map(([id, label]) => ({ id, label }))
+          .sort((a,b) => a.label.localeCompare(b.label));
+
+        if (ride66Data.options.length === 0) throw new Error("No locations found in HTML");
+
+        // Populate Dropdowns
+        const fill = (selId) => {
+          const sel = $(selId);
+          sel.innerHTML = '';
+          ride66Data.options.forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = o.id;
+            opt.textContent = o.label;
+            sel.appendChild(opt);
+          });
+        };
+
+        fill('ride66Start');
+        fill('ride66End');
+        
+        // Set reasonable defaults (Westbound example)
+        $('ride66Start').value = "424"; // E.g., I-495
+        $('ride66End').value = "425";   // E.g., Route 28
+
+        setStatus('ride66ConfigStatus', `Loaded ${ride66Data.options.length} locations.`, true);
+      } catch (e) {
+        setStatus('ride66ConfigStatus', 'Error: ' + e.message, false, true);
+      }
+    }
+
+    // 2. Calculate Toll (POST)
+    async function calculateRide66() {
+      const startId = $('ride66Start').value;
+      const endId = $('ride66End').value;
+      
+      if(!startId || !endId) {
+        setStatus('ride66Status', 'Select Start and End first.', false, true);
+        return;
+      }
+
+      setStatus('ride66Status', 'Fetching rates...');
+      $('ride66Grid').innerHTML = '';
+
+      const proxyUrl = buildProxiedUrl(RIDE66_API);
+      
+      // Create Form Data body
+      const body = new URLSearchParams();
+      body.append('action', 'api_call');
+      body.append('data[starting_gantry_id]', startId);
+      body.append('data[ending_gantry_id]', endId);
+      body.append('data[middle_ending_gantry_id]', '');
+      body.append('data[first_ending_gantry_id]', '');
+      body.append('data[xvWr]', '1');
+      body.append('data[response]', '');
+
+      try {
+        const res = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+          },
+          body: body
+        });
+
+        if (!res.ok) throw new Error('Proxy returned ' + res.status);
+        const json = await res.json();
+
+        if (!json.success || !json.data?.curl_response?.rates) {
+          throw new Error('Invalid API response structure');
+        }
+
+        const allRates = json.data.curl_response.rates;
+        const now = new Date();
+
+        // Filter: Find rates currently active (Start <= NOW <= End)
+        // Date format from API: "2025-12-23 14:41:19"
+        const activeRates = allRates.filter(r => {
+          // Replace space with T for valid ISO string parsing across browsers
+          const start = new Date(r.rateStartDate.replace(' ', 'T'));
+          const end = new Date(r.rateEndDate.replace(' ', 'T'));
+          return now >= start && now <= end;
+        });
+
+        const grid = $('ride66Grid');
+        
+        if (activeRates.length === 0) {
+          grid.innerHTML = `<div class="card"><div class="meta">No active tolls found for this exact moment.</div></div>`;
+          setStatus('ride66Status', 'No data.', false, true);
+          return;
+        }
+
+        // Render Cards
+        activeRates.forEach(rate => {
+          // Attempt to find price in standard locations
+          const priceObj = rate.gantry?.vehicleClasses?.[0];
+          const price = priceObj ? priceObj.rateAmountTag : 0;
+          
+          // Try to look up the specific gantry name if possible
+          const gantryId = rate.gantry.gantryId;
+          const label = ride66Data.options.find(x => x.id == gantryId)?.label || `Gantry ${gantryId}`;
+
+          const div = document.createElement('div');
+          div.className = 'card';
+          div.innerHTML = `
+            <div class="tag">Active Rate</div>
+            <div class="price">$${price.toFixed(2)}</div>
+            <div class="meta">${label}</div>
+            <div class="small">End Time: ${rate.rateEndDate.split(' ')[1]}</div>
+          `;
+          grid.appendChild(div);
+        });
+
+        setStatus('ride66Status', 'Done.', true);
+
+      } catch (e) {
+        console.error(e);
+        setStatus('ride66Status', e.message, false, true);
+      }
+    }
+
+    function populateRide66Dropdowns() {
+      // For now, simple population. Direction filtering would require knowing specific IDs.
+      const selStart = $('ride66Start');
+      const selEnd = $('ride66End');
+      
+      const render = (sel, list) => {
+        sel.innerHTML = '';
+        list.forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = o.id;
+          opt.textContent = `${o.label} (${o.id})`;
+          sel.appendChild(opt);
+        });
+      };
+      
+      render(selStart, ride66Data.wb);
+      render(selEnd, ride66Data.wb);
+    }
+
+    // 2. Fetch Rates (POST)
+    async function calculateRide66() {
+      const startId = $('ride66Start').value;
+      const endId = $('ride66End').value;
+      
+      if(!startId || !endId) {
+        setStatus('ride66Status', 'Select Start/End', false, true);
+        return;
+      }
+
+      setStatus('ride66Status', 'Fetching massive rate table...');
+      
+      // Build Body
+      // data[starting_gantry_id]: 424
+      // data[ending_gantry_id]: 425
+      // action: api_call
+      const bodyParams = new URLSearchParams();
+      bodyParams.append('action', 'api_call');
+      bodyParams.append('data[starting_gantry_id]', startId);
+      bodyParams.append('data[ending_gantry_id]', endId);
+      // Add empty fields to match HAR signature exactly, usually helps with WAF
+      bodyParams.append('data[middle_ending_gantry_id]', '');
+      bodyParams.append('data[first_ending_gantry_id]', '');
+      bodyParams.append('data[xvWr]', '1'); 
+      bodyParams.append('data[response]', '');
+
+      try {
+        const res = await fetchWithTimeout(RIDE66_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+          },
+          body: bodyParams
+        });
+
+        if(!res.ok) throw new Error('API Error ' + res.status);
+        
+        const json = await res.json();
+        
+        // Parse the complex response
+        // Structure: json.data.curl_response.rates -> Array of rate objects
+        // Rate object: { rateId, rateStartDate, rateEndDate, gantry: { gantryId, vehicleClasses: [{rateAmountTag}] } }
+        
+        if (!json.success || !json.data || !json.data.curl_response || !json.data.curl_response.rates) {
+          throw new Error('Invalid JSON structure');
+        }
+
+        const allRates = json.data.curl_response.rates;
+        const now = new Date();
+
+        // Filter for active rates
+        // rateStartDate <= NOW <= rateEndDate
+        // Format is "YYYY-MM-DD HH:mm:ss"
+        
+        const activeRates = allRates.filter(r => {
+          // Safari/Firefox standard parsing usually handles "YYYY-MM-DD HH:mm:ss" fine, 
+          // but strict ISO expects T. Let's fix it just in case.
+          const start = new Date(r.rateStartDate.replace(' ', 'T'));
+          const end = new Date(r.rateEndDate.replace(' ', 'T'));
+          return now >= start && now <= end;
+        });
+
+        // 3. Display Logic
+        // Since we don't have the segment map (Start -> End = Gantry A + Gantry B),
+        // we will look for a gantryId that matches the START selection.
+        // Often, the pricing logic is "Price at Entry Gantry to specific destination". 
+        // If not found, we show active rates found.
+        
+        const grid = $('ride66Grid');
+        grid.innerHTML = '';
+
+        if(activeRates.length === 0) {
+           grid.innerHTML = `<div class="card"><div class="meta">No active rates found for current time window.</div></div>`;
+           setStatus('ride66Status', 'No data', false, true);
+           return;
+        }
+
+        // Try to find exact match for start gantry (Segment pricing)
+        // Or calculate sum? Without map, sum is dangerous.
+        // We will display distinct rates found.
+        
+        activeRates.forEach(rate => {
+          const gId = rate.gantry.gantryId;
+          const tagPrice = rate.gantry.vehicleClasses[0]?.rateAmountTag || 0;
+          
+          // Try to lookup label
+          const labelObj = ride66Data.wb.find(o => o.id == gId);
+          const label = labelObj ? labelObj.label : `Gantry ${gId}`;
+
+          const div = document.createElement('div');
+          div.className = 'card';
+          div.innerHTML = `
+            <div class="tag">Active Segment</div>
+            <div class="price">$${tagPrice.toFixed(2)}</div>
+            <div class="meta">${label}</div>
+            <div class="small">End: ${rate.rateEndDate.split(' ')[1]}</div>
+          `;
+          grid.appendChild(div);
+        });
+
+        setStatus('ride66Status', `Found ${activeRates.length} active segments.`, true);
+
+      } catch (e) {
+        console.error(e);
+        setStatus('ride66Status', 'Error: ' + e.message, false, true);
+        $('ride66Grid').innerHTML = `<pre>${e.stack}</pre>`;
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // UI BINDINGS
+    // ─────────────────────────────────────────────────────────────────────────────
+    
+    // Tab switching
+    document.querySelectorAll('.tab-button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('section').forEach(s => s.classList.add('hide'));
+        $(`tab-${btn.dataset.tab}`).classList.remove('hide');
+      });
+    });
+
+    // Quick
+    $('switchDir').addEventListener('click', () => {
+      currentQuick = currentQuick === 'WB' ? 'EB' : 'WB';
+      quickFetch(currentQuick);
+    });
+    $('refreshQuick').addEventListener('click', () => quickFetch(currentQuick));
+
+    // Custom Inside
+    $('loadEntries').addEventListener('click', loadInsideEntries);
+    $('loadExits').addEventListener('click', loadInsideExits);
+    $('calcBtn').addEventListener('click', calcInsideCustom);
+
+    // Ride 66
+    $('ride66LoadConfig').addEventListener('click', loadRide66Config);
+    $('ride66Calc').addEventListener('click', calculateRide66);
+
+    // Init
+    (function init() {
+      // Trigger Quick fetch
+      quickFetch(currentQuick);
+    })();
+
+  </script>
+</body>
+</html>
